@@ -1,0 +1,9 @@
+
+compile to go code into a C shared library comprising of the exported functions
+
+`go build -o main.so -buildmode=c-shared main.go`
+
+Then run `python2 main.py`, which is set up to iterate over the ./2023 dir and run the 
+validation function from the go code on each csaf file.
+
+Each function call also returns 0 (pass) or 1 (fail). This can be used to sort the files into other dirs.

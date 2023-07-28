@@ -10,6 +10,7 @@
 package main
 
 import (
+        "C"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -18,9 +19,12 @@ import (
 
 	"github.com/csaf-poc/csaf_distribution/v2/csaf"
 	"github.com/csaf-poc/csaf_distribution/v2/util"
-	"github.com/jessevdk/go-flags"
+	//"github.com/jessevdk/go-flags"
 )
 
+//cgo cannot export structs to C without some workarounds. It looks like they are just for printing and 
+//selecting options. Maybe we can hardcode the selection or pass it from python.
+/*
 type options struct {
 	Version                bool     `long:"version" description:"Display version of the binary"`
 	RemoteValidator        string   `long:"validator" description:"URL to validate documents remotely" value-name:"URL"`
@@ -28,8 +32,11 @@ type options struct {
 	RemoteValidatorPresets []string `long:"validatorpreset" description:"One or more presets to validate remotely" default:"mandatory"`
 	Output                 string   `short:"o" long:"output" description:"If a remote validator was used, display AMOUNT ('all', 'important' or 'short') results" value-name:"AMOUNT"`
 }
+*/
 
+//stuff in main needs to be commented out. It is not necessary for simple checking anyway.
 func main() {
+/*
 	opts := new(options)
 
 	parser := flags.NewParser(opts, flags.Default)
@@ -48,14 +55,17 @@ func main() {
 	}
 
 	errCheck(run(opts, files))
+*/
 }
 
-// run validates the given files.
-func run(opts *options, files []string) error {
 
-	var validator csaf.RemoteValidator
-	eval := util.NewPathEval()
-
+// run validates the given files. Some C types need to be used for export puposes. 
+//export run
+func run(file_c *C.char) int {
+        file := C.GoString(file_c)
+	//var validator csaf.RemoteValidator
+        eval := util.NewPathEval()
+        /*
 	if opts.RemoteValidator != "" {
 		validatorOptions := csaf.RemoteValidatorOptions{
 			URL:     opts.RemoteValidator,
@@ -69,8 +79,9 @@ func run(opts *options, files []string) error {
 		}
 		defer validator.Close()
 	}
-
+        */
 	// Select amount level of output for remote validation.
+        /*
 	var printResult func(*csaf.RemoteValidationResult)
 	switch opts.Output {
 	case "all":
@@ -84,8 +95,11 @@ func run(opts *options, files []string) error {
 	default:
 		return fmt.Errorf("unknown output amount %q", opts.Output)
 	}
+        */
 
-	for _, file := range files {
+        //no loop. each call takes one file. Could easily use an array of file names again.
+	//for _, file := range file_s {
+                fault := 0
 		// Check if the file name is valid.
 		if !util.ConformingFileName(filepath.Base(file)) {
 			fmt.Printf("%q is not a valid advisory name.\n", file)
@@ -93,20 +107,21 @@ func run(opts *options, files []string) error {
 		doc, err := loadJSONFromFile(file)
 		if err != nil {
 			log.Printf("error: loading %q as JSON failed: %v\n", file, err)
-			continue
+			//continue
 		}
 		// Validate agsinst Schema.
 		validationErrs, err := csaf.ValidateCSAF(doc)
 		if err != nil {
 			log.Printf("error: validating %q against schema failed: %v\n",
 				file, err)
+                }
 
-		}
 		if len(validationErrs) > 0 {
 			fmt.Printf("schema validation errors of %q\n", file)
 			for _, vErr := range validationErrs {
 				fmt.Printf("  * %s\n", vErr)
 			}
+                        fault = 1
 		} else {
 			fmt.Printf("%q passes the schema validation.\n", file)
 		}
@@ -114,9 +129,13 @@ func run(opts *options, files []string) error {
 		// Check filename agains ID
 		if err := util.IDMatchesFilename(eval, doc, filepath.Base(file)); err != nil {
 			log.Printf("%s: %s.\n", file, err)
-			continue
-		}
+                        fault = 1
+			//continue
+                }
 
+
+                /*
+                Not currently using remote validator
 		// Validate against remote validator.
 		if validator != nil {
 			rvr, err := validator.Validate(doc)
@@ -133,32 +152,42 @@ func run(opts *options, files []string) error {
 			}
 			fmt.Printf("%q %s remote validation.\n", file, passes)
 		}
+                */
+	//} end of for loop for if the parameter is an array of file names
+        if fault == 0{
+             return 0 //returns 0 instead of nil because C does not like the error type.
+	} else {
+	     return 1
 	}
-
-	return nil
 }
 
 // noPrint suppresses the output of the validation result.
-func noPrint(*csaf.RemoteValidationResult) {}
+//func noPrint(*csaf.RemoteValidationResult) {}
 
 // messageInstancePaths aggregates errors, warnings and infos by their
 // message.
+
+/*
 type messageInstancePaths struct {
 	message string
 	paths   []string
 }
+*/
 
 // messageInstancePathsList is a list for errors, warnings or infos.
-type messageInstancePathsList []messageInstancePaths
+//type messageInstancePathsList []messageInstancePaths
 
 // addAll adds all errors, warnings or infos of a test.
+/*
 func (mipl *messageInstancePathsList) addAll(rtrs []csaf.RemoteTestResult) {
 	for _, rtr := range rtrs {
 		mipl.add(rtr)
 	}
 }
+*/
 
 // add adds a test result unless it is a duplicate.
+/*
 func (mipl *messageInstancePathsList) add(rtr csaf.RemoteTestResult) {
 	for i := range *mipl {
 		m := &(*mipl)[i]
@@ -179,8 +208,10 @@ func (mipl *messageInstancePathsList) add(rtr csaf.RemoteTestResult) {
 		paths:   []string{rtr.InstancePath},
 	})
 }
+*/
 
 // print prints the details of the list to stdout if there are any.
+/*
 func (mipl messageInstancePathsList) print(info string) {
 	if len(mipl) == 0 {
 		return
@@ -195,8 +226,10 @@ func (mipl messageInstancePathsList) print(info string) {
 		}
 	}
 }
+*/
 
 // printShort outputs the validation result in an aggregated version.
+/*
 func printShort(rvr *csaf.RemoteValidationResult) {
 
 	var errors, warnings, infos messageInstancePathsList
@@ -213,24 +246,30 @@ func printShort(rvr *csaf.RemoteValidationResult) {
 	warnings.print("warnings:")
 	infos.print("infos:")
 }
+*/
 
 // printImportant displays only the test results which are really relevant.
+/*
 func printImportant(rvr *csaf.RemoteValidationResult) {
 	printRemoteValidationResult(rvr, func(rt *csaf.RemoteTest) bool {
 		return !rt.Valid ||
 			len(rt.Info) > 0 || len(rt.Error) > 0 || len(rt.Warning) > 0
 	})
 }
+*/
 
 // printAll displays all test results.
+/*
 func printAll(rvr *csaf.RemoteValidationResult) {
 	printRemoteValidationResult(rvr, func(*csaf.RemoteTest) bool {
 		return true
 	})
 }
+*/
 
 // printInstanceAndMessages prints the message and the instance path of
 // a test result.
+/*
 func printInstanceAndMessages(info string, me []csaf.RemoteTestResult) {
 	if len(me) == 0 {
 		return
@@ -241,8 +280,10 @@ func printInstanceAndMessages(info string, me []csaf.RemoteTestResult) {
 		fmt.Printf("    message: %s\n", test.Message)
 	}
 }
+*/
 
 // printRemoteValidationResult prints a filtered output of the remote validation result.
+/*
 func printRemoteValidationResult(
 	rvr *csaf.RemoteValidationResult,
 	accept func(*csaf.RemoteTest) bool,
@@ -268,7 +309,9 @@ func printRemoteValidationResult(
 		printInstanceAndMessages("infos:", test.Info)
 	}
 }
+*/
 
+/*
 func errCheck(err error) {
 	if err != nil {
 		if flags.WroteHelp(err) {
@@ -277,9 +320,11 @@ func errCheck(err error) {
 		log.Fatalf("error: %v\n", err)
 	}
 }
+*/
 
 // loadJSONFromFile loads a JSON document from a file.
-func loadJSONFromFile(fname string) (any, error) {
+//export loadJSONFromFile
+func loadJSONFromFile(fname string) (interface{}, error) {
 	f, err := os.Open(fname)
 	if err != nil {
 		return nil, err
